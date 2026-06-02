@@ -1430,26 +1430,63 @@ async function triggerAutoSummary() {
             }
         ];
         
-        const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${state.model}:streamGenerateContent?key=${state.apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: contentsPayload,
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                generationConfig: { temperature: state.temperature, maxOutputTokens: 4096 }
-            })
-        });
+        let autoContinueCount = 0;
+        const maxAutoContinues = 2;
+        let responseText = '';
+        let currentPayload = contentsPayload;
         
-        // Remove typing loader
-        removeTemporaryLoadingBubble();
+        let bubble = null;
         
-        // Setup bubble for assistant
-        const bubble = appendMessage('assistant', '');
-        
-        // Stream text
-        await streamResponsePayload(response, bubble, (text) => {
-            responseText = text;
-        });
+        while (autoContinueCount <= maxAutoContinues) {
+            const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${state.model}:streamGenerateContent?key=${state.apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: currentPayload,
+                    systemInstruction: { parts: [{ text: systemInstruction }] },
+                    generationConfig: { temperature: state.temperature, maxOutputTokens: 4096 }
+                })
+            });
+            
+            if (autoContinueCount === 0) {
+                removeTemporaryLoadingBubble();
+                bubble = appendMessage('assistant', '');
+            } else {
+                removeTemporaryLoadingBubble();
+            }
+            
+            const result = await streamResponsePayload(response, bubble, (text) => {
+                // State tracking updated in result
+            }, responseText);
+            
+            responseText = result.text;
+            
+            const trimmed = responseText.trim();
+            const lastChar = trimmed.charAt(trimmed.length - 1);
+            const isAbrupt = (result.finishReason === "MAX_TOKENS") ||
+                             (trimmed.length > 500 && !/[.!?\"'\`\n)]$/.test(lastChar));
+                             
+            if (isAbrupt && autoContinueCount < maxAutoContinues) {
+                autoContinueCount++;
+                showToast(`<i class="fa-solid fa-arrows-spin fa-spin"></i> 요약이 잘려 자동으로 이어서 작성합니다... (${autoContinueCount}/${maxAutoContinues})`, 'info');
+                
+                currentPayload = [
+                    ...currentPayload,
+                    {
+                        role: 'model',
+                        parts: [{ text: responseText }]
+                    },
+                    {
+                        role: 'user',
+                        parts: [{ text: "[시스템 자동 지시]: 이전 답변이 중단되었습니다. 앞부분에 자연스럽게 연결되도록 인삿말이나 중복 설명 없이 이어서 계속 대답해 주세요." }]
+                    }
+                ];
+                
+                appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
+            } else {
+                break;
+            }
+        }
         
         // Save chat interaction
         state.messages.push({ role: 'user', parts: [{ text: prompt }] });
@@ -1473,11 +1510,12 @@ async function triggerAutoSummary() {
 }
 
 // Custom stream response processor
-async function streamResponsePayload(response, targetBubbleElement, onCompletedCallback) {
+async function streamResponsePayload(response, targetBubbleElement, onCompletedCallback, initialText = '') {
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let accumulatedBuffer = '';
-    let accumulatedText = '';
+    let accumulatedText = initialText;
+    let lastFinishReason = null;
     
     // Balanced braces JSON parser for stream segments
     let braceCount = 0;
@@ -1501,6 +1539,11 @@ async function streamResponsePayload(response, targetBubbleElement, onCompletedC
                         const objStr = accumulatedBuffer.substring(objectStartIdx, i + 1);
                         try {
                             const json = JSON.parse(objStr);
+                            
+                            // Capture finish reason
+                            const reason = json.candidates?.[0]?.finishReason;
+                            if (reason) lastFinishReason = reason;
+                            
                             const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
                             if (text) {
                                 accumulatedText += text;
@@ -1534,8 +1577,10 @@ async function streamResponsePayload(response, targetBubbleElement, onCompletedC
         }
         
         onCompletedCallback(accumulatedText);
+        return { text: accumulatedText, finishReason: lastFinishReason };
     } catch(err) {
         console.error("Streaming error: ", err);
+        return { text: accumulatedText, finishReason: 'ERROR' };
     }
 }
 
@@ -1640,25 +1685,62 @@ async function handleSendMessage() {
 1. 답변은 장황한 부연 설명을 생략하고 핵심 내용 위주로 요약하되, 수식 유도나 핵심 알고리즘 설명 등 명확한 기술적 분석이 필요한 경우에는 충분한 분량을 활용하여 완전히 완성된 형태로 설명해 주세요. 과도한 문장 생략보다는 분석의 완성도와 가독성을 최우선으로 삼아 문장이 중간에 잘리거나 어색하게 끝나지 않도록 반드시 마침표(.)로 깔끔하게 끝맺음해 주세요.
 2. 컴퓨터 비전(Computer Vision) 분야에서 널리 쓰이는 고유 대명사나 학술 용어(예: Bounding Box, IoU, Feature Map, Backbone, Self-Attention, Anchor Box, Zero-shot, Contrastive Learning 등)는 무리하게 한글로 번역하거나 바꾸지 말고, 영어나 원본 표기 그대로 사용하여 전문적이고 직관적인 학술 분석을 제공해 주세요.`;
         
-        const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${state.model}:streamGenerateContent?key=${state.apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: conversationPayload,
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                generationConfig: { temperature: state.temperature, maxOutputTokens: 4096 }
-            })
-        });
-        
-        removeTemporaryLoadingBubble();
-        
-        // Prepare final message bubble
-        const assistantBubble = appendMessage('assistant', '');
+        let autoContinueCount = 0;
+        const maxAutoContinues = 2;
         let responseText = '';
+        let currentPayload = [...conversationPayload];
+        let assistantBubble = null;
         
-        await streamResponsePayload(response, assistantBubble, (resText) => {
-            responseText = resText;
-        });
+        while (autoContinueCount <= maxAutoContinues) {
+            const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${state.model}:streamGenerateContent?key=${state.apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: currentPayload,
+                    systemInstruction: { parts: [{ text: systemInstruction }] },
+                    generationConfig: { temperature: state.temperature, maxOutputTokens: 4096 }
+                })
+            });
+            
+            if (autoContinueCount === 0) {
+                removeTemporaryLoadingBubble();
+                assistantBubble = appendMessage('assistant', '');
+            } else {
+                removeTemporaryLoadingBubble();
+            }
+            
+            const result = await streamResponsePayload(response, assistantBubble, (resText) => {
+                // State tracking updated in result
+            }, responseText);
+            
+            responseText = result.text;
+            
+            const trimmed = responseText.trim();
+            const lastChar = trimmed.charAt(trimmed.length - 1);
+            const isAbrupt = (result.finishReason === "MAX_TOKENS") ||
+                             (trimmed.length > 500 && !/[.!?\"'\`\n)]$/.test(lastChar));
+                             
+            if (isAbrupt && autoContinueCount < maxAutoContinues) {
+                autoContinueCount++;
+                showToast(`<i class="fa-solid fa-arrows-spin fa-spin"></i> 답변이 잘려 자동으로 이어서 작성합니다... (${autoContinueCount}/${maxAutoContinues})`, 'info');
+                
+                currentPayload = [
+                    ...currentPayload,
+                    {
+                        role: 'model',
+                        parts: [{ text: responseText }]
+                    },
+                    {
+                        role: 'user',
+                        parts: [{ text: "[시스템 자동 지시]: 이전 답변이 중단되었습니다. 앞부분에 자연스럽게 연결되도록 인삿말이나 중복 설명 없이 이어서 계속 대답해 주세요." }]
+                    }
+                ];
+                
+                appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
+            } else {
+                break;
+            }
+        }
         
         // Update history states
         state.messages.push({ role: 'user', parts: [{ text: text }] });
