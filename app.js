@@ -251,6 +251,75 @@ function initListeners() {
 
     // Scroll tracking to update current page indicator in viewer
     elements.pdfContainer.addEventListener('scroll', throttle(handleViewerScroll, 150));
+
+    // Event delegations for dynamically spawned pages
+    elements.pdfContainer.addEventListener('mousedown', (e) => {
+        if (state.cursorMode !== 'attention') return;
+        const canvas = e.target.closest('.attention-canvas');
+        if (!canvas) return;
+        
+        // Reset all drawings
+        clearAllAttentionCanvases();
+        
+        isDrawing = true;
+        activeCanvas = canvas;
+        const pageContainer = canvas.closest('.pdf-page-container');
+        activePageNum = parseInt(pageContainer.dataset.pageNumber);
+        
+        const rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+    });
+
+    elements.pdfContainer.addEventListener('mousemove', (e) => {
+        if (!isDrawing || !activeCanvas) return;
+        const canvas = activeCanvas;
+        const rect = canvas.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Bounding Box glow borders
+        ctx.strokeStyle = '#a78bfa';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(139, 92, 246, 0.12)';
+        
+        // Accent shadow glow
+        ctx.shadowColor = '#d946ef';
+        ctx.shadowBlur = 6;
+        
+        const w = currentX - startX;
+        const h = currentY - startY;
+        
+        ctx.beginPath();
+        ctx.rect(startX, startY, w, h);
+        ctx.fill();
+        ctx.stroke();
+    });
+
+    elements.pdfContainer.addEventListener('mouseup', (e) => {
+        if (!isDrawing || !activeCanvas) return;
+        isDrawing = false;
+        
+        const canvas = activeCanvas;
+        const rect = canvas.getBoundingClientRect();
+        const endX = e.clientX - rect.left;
+        const endY = e.clientY - rect.top;
+        
+        const left = Math.min(startX, endX);
+        const top = Math.min(startY, endY);
+        const width = Math.abs(startX - endX);
+        const height = Math.abs(startY - endY);
+        
+        // Check if dragging has substantial area (filters clicks)
+        if (width > 6 && height > 6) {
+            extractTextFromBoxRegion(activePageNum, left, top, width, height);
+        } else {
+            clearAttention();
+        }
+    });
 }
 
 // --- Draggable Splitter Resizer & Layout Controls ---
@@ -1184,74 +1253,7 @@ let startX = 0, startY = 0;
 let activeCanvas = null;
 let activePageNum = null;
 
-// Event delegations for dynamically spawned pages
-elements.pdfContainer.addEventListener('mousedown', (e) => {
-    if (state.cursorMode !== 'attention') return;
-    const canvas = e.target.closest('.attention-canvas');
-    if (!canvas) return;
-    
-    // Reset all drawings
-    clearAllAttentionCanvases();
-    
-    isDrawing = true;
-    activeCanvas = canvas;
-    const pageContainer = canvas.closest('.pdf-page-container');
-    activePageNum = parseInt(pageContainer.dataset.pageNumber);
-    
-    const rect = canvas.getBoundingClientRect();
-    startX = e.clientX - rect.left;
-    startY = e.clientY - rect.top;
-});
 
-elements.pdfContainer.addEventListener('mousemove', (e) => {
-    if (!isDrawing || !activeCanvas) return;
-    const canvas = activeCanvas;
-    const rect = canvas.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
-    
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Bounding Box glow borders
-    ctx.strokeStyle = '#a78bfa';
-    ctx.lineWidth = 2;
-    ctx.fillStyle = 'rgba(139, 92, 246, 0.12)';
-    
-    // Accent shadow glow
-    ctx.shadowColor = '#d946ef';
-    ctx.shadowBlur = 6;
-    
-    const w = currentX - startX;
-    const h = currentY - startY;
-    
-    ctx.beginPath();
-    ctx.rect(startX, startY, w, h);
-    ctx.fill();
-    ctx.stroke();
-});
-
-elements.pdfContainer.addEventListener('mouseup', (e) => {
-    if (!isDrawing || !activeCanvas) return;
-    isDrawing = false;
-    
-    const canvas = activeCanvas;
-    const rect = canvas.getBoundingClientRect();
-    const endX = e.clientX - rect.left;
-    const endY = e.clientY - rect.top;
-    
-    const left = Math.min(startX, endX);
-    const top = Math.min(startY, endY);
-    const width = Math.abs(startX - endX);
-    const height = Math.abs(startY - endY);
-    
-    // Check if dragging has substantial area (filters clicks)
-    if (width > 6 && height > 6) {
-        extractTextFromBoxRegion(activePageNum, left, top, width, height);
-    } else {
-        clearAttention();
-    }
-});
 
 // Clear all bounding box renders
 function clearAllAttentionCanvases() {
