@@ -1400,7 +1400,7 @@ async function triggerAutoSummary() {
 
         // Add formatting, proper noun translation, and length limits constraints
         systemInstruction += `\n\n[필수 지침 및 제약 조건]:
-1. 모든 답변의 길이는 공백을 포함하여 반드시 **1500자 이내**로 간결하고 명확하게 작성해 주세요. 불필요한 서론이나 사족은 생략하고 핵심만 요약해야 사용자가 추가 질문을 이어가기 편합니다.
+1. 모든 답변의 길이는 공백을 포함하여 반드시 **1500자 이내**로 작성해 주세요. 제한된 분량 안에 내용을 알차게 압축하여 완성하되, 답변이 중간에 비정상적으로 끊기거나 미완성인 문장으로 끝나는 일이 절대 없도록 마지막 문장까지 **마침표(.)로 명확하게 완성**해서 종결해 주세요.
 2. 컴퓨터 비전(Computer Vision) 분야에서 널리 쓰이는 고유 대명사나 학술 용어(예: Bounding Box, IoU, Feature Map, Backbone, Self-Attention, Anchor Box, Zero-shot, Contrastive Learning 등)는 무리하게 한글로 번역하거나 바꾸지 말고, 영어나 원본 표기 그대로 사용하여 전문적이고 직관적인 학술 분석을 제공해 주세요.`;
         
         const contentsPayload = [
@@ -1416,7 +1416,7 @@ async function triggerAutoSummary() {
             body: JSON.stringify({
                 contents: contentsPayload,
                 systemInstruction: { parts: [{ text: systemInstruction }] },
-                generationConfig: { temperature: state.temperature, maxOutputTokens: 2048 }
+                generationConfig: { temperature: state.temperature, maxOutputTokens: 4096 }
             })
         });
         
@@ -1603,7 +1603,7 @@ async function handleSendMessage() {
 
         // Constraints for CV terms, format, and 1500 chars limit
         systemInstruction += `\n\n[필수 지침 및 제약 조건]:
-1. 모든 답변의 길이는 공백을 포함하여 반드시 **1500자 이내**로 간결하고 명확하게 작성해 주세요. 불필요한 서론이나 사족은 생략하고 핵심만 요약해야 사용자가 추가 질문을 이어가기 편합니다.
+1. 모든 답변의 길이는 공백을 포함하여 반드시 **1500자 이내**로 작성해 주세요. 제한된 분량 안에 내용을 알차게 압축하여 완성하되, 답변이 중간에 비정상적으로 끊기거나 미완성인 문장으로 끝나는 일이 절대 없도록 마지막 문장까지 **마침표(.)로 명확하게 완성**해서 종결해 주세요.
 2. 컴퓨터 비전(Computer Vision) 분야에서 널리 쓰이는 고유 대명사나 학술 용어(예: Bounding Box, IoU, Feature Map, Backbone, Self-Attention, Anchor Box, Zero-shot, Contrastive Learning 등)는 무리하게 한글로 번역하거나 바꾸지 말고, 영어나 원본 표기 그대로 사용하여 전문적이고 직관적인 학술 분석을 제공해 주세요.`;
         
         const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${state.model}:streamGenerateContent?key=${state.apiKey}`, {
@@ -1612,7 +1612,7 @@ async function handleSendMessage() {
             body: JSON.stringify({
                 contents: conversationPayload,
                 systemInstruction: { parts: [{ text: systemInstruction }] },
-                generationConfig: { temperature: state.temperature, maxOutputTokens: 2048 }
+                generationConfig: { temperature: state.temperature, maxOutputTokens: 4096 }
             })
         });
         
