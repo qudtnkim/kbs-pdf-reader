@@ -35,57 +35,65 @@ let state = {
     currentRenderId: null
 };
 
-// --- DOM Cache ---
-const elements = {
-    apiKey: document.getElementById('apiKey'),
-    modelSelect: document.getElementById('modelSelect'),
-    contextModeGroup: document.getElementById('contextModeGroup'),
-    historyList: document.getElementById('historyList'),
-    prevPageBtn: document.getElementById('prevPageBtn'),
-    nextPageBtn: document.getElementById('nextPageBtn'),
-    pageIndicator: document.getElementById('pageIndicator'),
-    zoomOutBtn: document.getElementById('zoomOutBtn'),
-    zoomInBtn: document.getElementById('zoomInBtn'),
-    zoomIndicator: document.getElementById('zoomIndicator'),
-    cursorModeText: document.getElementById('cursorModeText'),
-    cursorModeAttention: document.getElementById('cursorModeAttention'),
-    dropzone: document.getElementById('dropzone'),
-    pdfFileInput: document.getElementById('pdfFileInput'),
-    pdfContainer: document.getElementById('pdfContainer'),
-    attentionCard: document.getElementById('attentionCard'),
-    clearAttentionBtn: document.getElementById('clearAttentionBtn'),
-    attentionContent: document.getElementById('attentionContent'),
-    chatMessages: document.getElementById('chatMessages'),
-    chatInput: document.getElementById('chatInput'),
-    sendBtn: document.getElementById('sendBtn'),
-    pdfStatusBadge: document.getElementById('pdfStatusBadge'),
-    clearChatBtn: document.getElementById('clearChatBtn'),
-    toggleSidebarBtn: document.getElementById('toggleSidebarBtn'),
-    sidebar: document.getElementById('sidebar'),
-    currentModelBadge: document.getElementById('currentModelBadge'),
-    toastContainer: document.getElementById('toastContainer'),
-    attentionBanner: document.getElementById('attentionBanner'),
-    chatResizer: document.getElementById('chatResizer'),
-    toggleChatWidthBtn: document.getElementById('toggleChatWidthBtn'),
-    fullscreenChatBtn: document.getElementById('fullscreenChatBtn'),
-    chatPane: document.getElementById('chatPane'),
-    settingsHeader: document.getElementById('settingsHeader'),
-    gearIcon: document.getElementById('gearIcon'),
-    advancedSettingsBlock: document.getElementById('advancedSettingsBlock'),
-    tempRange: document.getElementById('tempRange'),
-    tempValue: document.getElementById('tempValue'),
-    systemPrompt: document.getElementById('systemPrompt'),
-    clearAllDbBtn: document.getElementById('clearAllDbBtn'),
-    profileQueryCount: document.getElementById('profileQueryCount'),
-    profileSummary: document.getElementById('profileSummary'),
-    profileKeywords: document.getElementById('profileKeywords'),
-    cvAtlasCard: document.getElementById('cvAtlasCard'),
-    cvAtlasContent: document.getElementById('cvAtlasContent'),
-    clearCvAtlasBtn: document.getElementById('clearCvAtlasBtn')
-};
+// --- DOM Cache (Lazy-loaded inside DOMContentLoaded) ---
+let elements = {};
+
+function initDomCache() {
+    elements = {
+        apiKey: document.getElementById('apiKey'),
+        modelSelect: document.getElementById('modelSelect'),
+        contextModeGroup: document.getElementById('contextModeGroup'),
+        historyList: document.getElementById('historyList'),
+        prevPageBtn: document.getElementById('prevPageBtn'),
+        nextPageBtn: document.getElementById('nextPageBtn'),
+        pageIndicator: document.getElementById('pageIndicator'),
+        zoomOutBtn: document.getElementById('zoomOutBtn'),
+        zoomInBtn: document.getElementById('zoomInBtn'),
+        zoomIndicator: document.getElementById('zoomIndicator'),
+        cursorModeText: document.getElementById('cursorModeText'),
+        cursorModeAttention: document.getElementById('cursorModeAttention'),
+        dropzone: document.getElementById('dropzone'),
+        pdfFileInput: document.getElementById('pdfFileInput'),
+        pdfContainer: document.getElementById('pdfContainer'),
+        attentionCard: document.getElementById('attentionCard'),
+        clearAttentionBtn: document.getElementById('clearAttentionBtn'),
+        attentionContent: document.getElementById('attentionContent'),
+        chatMessages: document.getElementById('chatMessages'),
+        chatInput: document.getElementById('chatInput'),
+        sendBtn: document.getElementById('sendBtn'),
+        pdfStatusBadge: document.getElementById('pdfStatusBadge'),
+        clearChatBtn: document.getElementById('clearChatBtn'),
+        toggleSidebarBtn: document.getElementById('toggleSidebarBtn'),
+        sidebar: document.getElementById('sidebar'),
+        currentModelBadge: document.getElementById('currentModelBadge'),
+        toastContainer: document.getElementById('toastContainer'),
+        attentionBanner: document.getElementById('attentionBanner'),
+        chatResizer: document.getElementById('chatResizer'),
+        toggleChatWidthBtn: document.getElementById('toggleChatWidthBtn'),
+        fullscreenChatBtn: document.getElementById('fullscreenChatBtn'),
+        chatPane: document.getElementById('chatPane'),
+        settingsHeader: document.getElementById('settingsHeader'),
+        gearIcon: document.getElementById('gearIcon'),
+        advancedSettingsBlock: document.getElementById('advancedSettingsBlock'),
+        tempRange: document.getElementById('tempRange'),
+        tempValue: document.getElementById('tempValue'),
+        systemPrompt: document.getElementById('systemPrompt'),
+        clearAllDbBtn: document.getElementById('clearAllDbBtn'),
+        profileQueryCount: document.getElementById('profileQueryCount'),
+        profileSummary: document.getElementById('profileSummary'),
+        profileKeywords: document.getElementById('profileKeywords'),
+        cvAtlasCard: document.getElementById('cvAtlasCard'),
+        cvAtlasContent: document.getElementById('cvAtlasContent'),
+        clearCvAtlasBtn: document.getElementById('clearCvAtlasBtn'),
+        globalDropOverlay: document.getElementById('globalDropOverlay')
+    };
+}
 
 // --- Initial Setup ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize DOM element references after parsing complete
+    initDomCache();
+
     // Populate API Key
     if (state.apiKey) {
         elements.apiKey.value = state.apiKey;
@@ -109,6 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Render past conversations
     renderHistoryList();
+    
+    // Init global drag and drop overlay listener
+    initGlobalDragAndDrop();
 });
 
 // --- Toast notification ---
@@ -2074,4 +2085,53 @@ function resetCurrentChat() {
         state.conversations[state.activeConversationId].messages = [];
         saveConversationToStorage();
     }
+}
+
+// --- Global Drag & Drop Overlay System ---
+function initGlobalDragAndDrop() {
+    const overlay = elements.globalDropOverlay;
+    if (!overlay) return;
+    
+    let dragCounter = 0;
+    
+    window.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        if (dragCounter === 1) {
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.classList.add('active'), 10);
+        }
+    });
+    
+    window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    
+    window.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+            overlay.classList.remove('active');
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+    });
+    
+    window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.style.display = 'none', 300);
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && files[0].type === 'application/pdf') {
+            const restoreZone = document.getElementById('restoreDropzone');
+            if (restoreZone && document.body.contains(restoreZone)) {
+                handleRestoreFile(files[0]);
+            } else {
+                loadPDFFile(files[0]);
+            }
+        } else {
+            showToast('<i class="fa-solid fa-triangle-exclamation"></i> 올바른 PDF 파일을 놓아주세요.', 'error');
+        }
+    });
 }

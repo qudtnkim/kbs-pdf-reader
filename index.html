@@ -267,6 +267,15 @@
     <!-- Notification Toast Container -->
     <div id="toastContainer"></div>
 
+    <!-- Global Drag and Drop Overlay -->
+    <div id="globalDropOverlay" class="global-drop-overlay" style="display: none;">
+        <div class="global-drop-box">
+            <i class="fa-solid fa-file-import" style="font-size: 3.5rem; color: var(--color-primary); margin-bottom: 1.25rem; filter: drop-shadow(var(--glow-violet));"></i>
+            <div style="font-size: 1.25rem; font-weight: 700; font-family: var(--font-heading); margin-bottom: 0.4rem; color: var(--text-main);">새로운 PDF 논문 놓기</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">이곳에 파일(PDF)을 놓으시면 즉시 논문 해독과 분석을 시작합니다.</div>
+        </div>
+    </div>
+
     <!-- External CDNs: PDF.js & Marked.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
