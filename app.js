@@ -287,7 +287,7 @@ function initListeners() {
         elements.dropzone.style.borderColor = 'rgba(139, 92, 246, 0.3)';
         const files = e.dataTransfer.files;
         if (files.length > 0 && files[0].type === 'application/pdf') {
-            loadPDFFile(files[0]);
+            processAndLoadPDF(files[0]);
         } else {
             showToast('<i class="fa-solid fa-triangle-exclamation"></i> 올바른 PDF 파일을 놓아주세요.', 'error');
         }
@@ -799,28 +799,67 @@ function changePage(direction) {
     }
 }
 
-// --- Drag and Drop File Handlers ---
+// --- Drag and Drop File Handlers & Multi-Strategy PDF Loader (Robust Re-write) ---
 function handleFileSelect(e) {
     const file = e.target.files[0];
     if (file) {
-        loadPDFFile(file);
+        processAndLoadPDF(file);
     }
 }
 
-// Load local File object
-function loadPDFFile(file) {
+// Entry for files dropped or selected
+async function processAndLoadPDF(file) {
+    if (!file || file.type !== 'application/pdf') {
+        showToast('<i class="fa-solid fa-triangle-exclamation"></i> 올바른 PDF 파일을 올려주세요.', 'error');
+        return;
+    }
+    
     state.filename = file.name;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const arrayBuffer = e.target.result;
-        // Run core document loading
-        loadPDFDocument(arrayBuffer, file.name);
-    };
-    reader.readAsArrayBuffer(file);
+    
+    // Attempt 1: Blob URL (Highly compatible, solves arrayBuffer stream bugs in local environments)
+    try {
+        const fileURL = URL.createObjectURL(file);
+        console.log("[Loader] Strategy 1: URL.createObjectURL -> success:", fileURL);
+        await loadPDFDocument(fileURL, file.name);
+        return;
+    } catch (errURL) {
+        console.warn("[Loader] Strategy 1 (Blob URL) failed, trying Strategy 2...", errURL);
+    }
+    
+    // Attempt 2: Modern ArrayBuffer promise
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        console.log("[Loader] Strategy 2: file.arrayBuffer() -> success.");
+        await loadPDFDocument({ data: arrayBuffer }, file.name);
+        return;
+    } catch (errBuffer) {
+        console.warn("[Loader] Strategy 2 (ArrayBuffer Promise) failed, trying Strategy 3...", errBuffer);
+    }
+    
+    // Attempt 3: Legacy FileReader
+    try {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const arrayBuffer = e.target.result;
+                console.log("[Loader] Strategy 3: FileReader onload -> success.");
+                await loadPDFDocument({ data: arrayBuffer }, file.name);
+            } catch (errReader) {
+                console.error("[Loader] Critical inner parser fail in FileReader:", errReader);
+                showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 파싱 엔진 로드 실패', 'error');
+                resetToInitialState();
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    } catch (errFileReader) {
+        console.error("[Loader] Strategy 3 (FileReader) initialization failed.", errFileReader);
+        showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 해석 엔진 최종 초기화 실패', 'error');
+        resetToInitialState();
+    }
 }
 
 // Core PDF Document Renderer & Extractor
-async function loadPDFDocument(arrayBuffer, filename) {
+async function loadPDFDocument(pdfSource, filename) {
     try {
         // Show loading state
         elements.dropzone.style.display = 'none';
@@ -832,7 +871,8 @@ async function loadPDFDocument(arrayBuffer, filename) {
             </div>
         `;
         
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        // pdfSource can be string (Blob URL) or object ({ data: arrayBuffer })
+        const loadingTask = pdfjsLib.getDocument(pdfSource);
         const pdfDoc = await loadingTask.promise;
         state.pdfDoc = pdfDoc;
         state.totalPages = pdfDoc.numPages;
@@ -860,7 +900,14 @@ async function loadPDFDocument(arrayBuffer, filename) {
         
     } catch(err) {
         console.error("PDF Load Error: ", err);
-        showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 파일을 불러오는 도중 오류가 발생했습니다.', 'error');
+        logSystemError({
+            message: `PDF Load Error: ${err.message || err}`,
+            source: 'app.js (loadPDFDocument)',
+            lineno: 0,
+            colno: 0,
+            stack: err.stack
+        });
+        showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 파일을 불러오는 도중 오류가 발생했습니다. 로그를 참고하세요.', 'error');
         resetToInitialState();
     }
 }
@@ -2026,40 +2073,80 @@ function handleRestoreFileSelect(e) {
     if (file) handleRestoreFile(file);
 }
 
-// Restore PDF doc to canvas layout
-function handleRestoreFile(file) {
+// Restore PDF doc to canvas layout (3-tier fallback strategy)
+async function handleRestoreFile(file) {
+    if (!file || file.type !== 'application/pdf') {
+        showToast('<i class="fa-solid fa-triangle-exclamation"></i> 올바른 PDF 파일을 올려주세요.', 'error');
+        return;
+    }
+
     if (file.name !== state.filename) {
         if (!confirm(`불러온 대화 기록의 파일명(${state.filename})과 업로드된 파일명(${file.name})이 다릅니다. 그래도 시각 렌더링을 진행할까요?`)) {
             return;
         }
     }
     
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        try {
-            elements.pdfContainer.innerHTML = `
-                <div class="pdf-loading-spinner">
-                    <div class="spinner"></div>
-                    <div style="font-size: 0.9rem; color: var(--text-muted);">PDF 레이아웃 페이지 복구 중...</div>
-                </div>
-            `;
-            const loadingTask = pdfjsLib.getDocument({ data: e.target.result });
-            const pdfDoc = await loadingTask.promise;
-            state.pdfDoc = pdfDoc;
-            state.totalPages = pdfDoc.numPages;
-            state.currentPage = 1;
-            
-            updatePageIndicator();
-            elements.pdfStatusBadge.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--color-success);"></i> <span>${state.filename} (${state.totalPages} p)</span>`;
-            
-            await renderAllPages();
-            showToast('<i class="fa-solid fa-images"></i> PDF 시각 레이아웃 복구 완료');
-        } catch(err) {
-            showToast('<i class="fa-solid fa-circle-exclamation"></i> 파일 로딩 도중 오류가 발생했습니다.', 'error');
-            loadConversation(state.activeConversationId);
-        }
-    };
-    reader.readAsArrayBuffer(file);
+    elements.pdfContainer.innerHTML = `
+        <div class="pdf-loading-spinner">
+            <div class="spinner"></div>
+            <div style="font-size: 0.9rem; color: var(--text-muted);">PDF 레이아웃 페이지 복구 중...</div>
+        </div>
+    `;
+
+    async function bindAndRenderRestoredPDF(pdfSource) {
+        const loadingTask = pdfjsLib.getDocument(pdfSource);
+        const pdfDoc = await loadingTask.promise;
+        state.pdfDoc = pdfDoc;
+        state.totalPages = pdfDoc.numPages;
+        state.currentPage = 1;
+        
+        updatePageIndicator();
+        elements.pdfStatusBadge.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--color-success);"></i> <span>${state.filename} (${state.totalPages} p)</span>`;
+        
+        await renderAllPages();
+        showToast('<i class="fa-solid fa-images"></i> PDF 시각 레이아웃 복구 완료');
+    }
+
+    // Attempt 1: Blob URL (Highly compatible)
+    try {
+        const fileURL = URL.createObjectURL(file);
+        console.log("[Restore Loader] Strategy 1: URL.createObjectURL -> success:", fileURL);
+        await bindAndRenderRestoredPDF(fileURL);
+        return;
+    } catch (errURL) {
+        console.warn("[Restore Loader] Strategy 1 (Blob URL) failed, trying Strategy 2...", errURL);
+    }
+
+    // Attempt 2: ArrayBuffer promise
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        console.log("[Restore Loader] Strategy 2: file.arrayBuffer() -> success.");
+        await bindAndRenderRestoredPDF({ data: arrayBuffer });
+        return;
+    } catch (errBuffer) {
+        console.warn("[Restore Loader] Strategy 2 (ArrayBuffer Promise) failed, trying Strategy 3...", errBuffer);
+    }
+
+    // Attempt 3: Legacy FileReader
+    try {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const arrayBuffer = e.target.result;
+                console.log("[Restore Loader] Strategy 3: FileReader onload -> success.");
+                await bindAndRenderRestoredPDF({ data: arrayBuffer });
+            } catch (errReader) {
+                console.error("[Restore Loader] Critical inner parser fail in FileReader:", errReader);
+                showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 파싱 엔진 로드 실패', 'error');
+                loadConversation(state.activeConversationId);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    } catch (errFileReader) {
+        console.error("[Restore Loader] Strategy 3 (FileReader) initialization failed.", errFileReader);
+        showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 해석 엔진 최종 복구 실패', 'error');
+        loadConversation(state.activeConversationId);
+    }
 }
 
 // Render conversations sidebar panel items
@@ -2202,7 +2289,7 @@ function initGlobalDragAndDrop() {
             if (restoreZone && document.body.contains(restoreZone)) {
                 handleRestoreFile(files[0]);
             } else {
-                loadPDFFile(files[0]);
+                processAndLoadPDF(files[0]);
             }
         } else {
             showToast('<i class="fa-solid fa-triangle-exclamation"></i> 올바른 PDF 파일을 놓아주세요.', 'error');
