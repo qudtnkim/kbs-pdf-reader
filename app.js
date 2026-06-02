@@ -31,7 +31,8 @@ let state = {
         keywords: [],
         queryCount: 0
     })),
-    conversations: JSON.parse(localStorage.getItem('kbs_conversations') || '{}')
+    conversations: JSON.parse(localStorage.getItem('kbs_conversations') || '{}'),
+    currentRenderId: null
 };
 
 // --- DOM Cache ---
@@ -1077,11 +1078,16 @@ function visualizeRAGHighlights(pageNums) {
 async function renderAllPages() {
     if (!state.pdfDoc) return;
     
+    // Create unique ID for this rendering process
+    const renderId = Date.now() + Math.random();
+    state.currentRenderId = renderId;
+    
     // Clear container
     elements.pdfContainer.innerHTML = '';
     
+    // 1. Create and append all containers synchronously first to guarantee correct DOM order
+    const pageContainers = [];
     for (let pageNum = 1; pageNum <= state.totalPages; pageNum++) {
-        // Create containers
         const pageContainer = document.createElement('div');
         pageContainer.className = 'pdf-page-container';
         pageContainer.dataset.pageNumber = pageNum;
@@ -1102,8 +1108,22 @@ async function renderAllPages() {
         
         elements.pdfContainer.appendChild(pageContainer);
         
-        // Render current page content
-        await renderSinglePage(pageNum, pageContainer, canvas, textLayer, attentionCanvas);
+        pageContainers.push({
+            pageNum,
+            pageContainer,
+            canvas,
+            textLayer,
+            attentionCanvas
+        });
+    }
+    
+    // 2. Render each page content sequentially, checking the lock at each step
+    for (const item of pageContainers) {
+        if (state.currentRenderId !== renderId) {
+            console.log(`[Renderer] Render job superceded by a newer run. Aborting rendering at page ${item.pageNum}.`);
+            return;
+        }
+        await renderSinglePage(item.pageNum, item.pageContainer, item.canvas, item.textLayer, item.attentionCanvas);
     }
 }
 
