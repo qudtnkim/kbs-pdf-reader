@@ -77,6 +77,24 @@
                 </div>
             </div>
 
+            <!-- System Error Log Panel (Self-Diagnosis) -->
+            <div class="sidebar-section" id="errorLogSection" style="border-bottom: 1px solid var(--border-color); background: rgba(239, 68, 68, 0.01);">
+                <div class="sidebar-section-title" style="color: #f87171;">
+                    <span>자가 진단 & 시스템 에러 로그</span>
+                    <i class="fa-solid fa-bug" title="런타임 오류 추적기"></i>
+                </div>
+                <div style="padding: 2px 0;">
+                    <div id="errorLogList" style="max-height: 100px; overflow-y: auto; background: rgba(0, 0, 0, 0.2); padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.1);">
+                        <!-- Dynamic error items -->
+                    </div>
+                    <div style="text-align: right; margin-top: 0.35rem;">
+                        <button id="clearErrorLogsBtn" style="background: transparent; border: none; color: var(--text-dim); font-size: 0.65rem; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-dim)'">
+                            <i class="fa-solid fa-trash-can"></i> 로그 리셋
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Research Profile Panel (Dynamic Learner) -->
             <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); background: rgba(139, 92, 246, 0.02);">
                 <div class="sidebar-section-title">
@@ -273,6 +291,25 @@
             <i class="fa-solid fa-file-import" style="font-size: 3.5rem; color: var(--color-primary); margin-bottom: 1.25rem; filter: drop-shadow(var(--glow-violet));"></i>
             <div style="font-size: 1.25rem; font-weight: 700; font-family: var(--font-heading); margin-bottom: 0.4rem; color: var(--text-main);">새로운 PDF 논문 놓기</div>
             <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">이곳에 파일(PDF)을 놓으시면 즉시 논문 해독과 분석을 시작합니다.</div>
+        </div>
+    </div>
+
+    <!-- Debug Crash Overlay (Critical Errors) -->
+    <div id="debugOverlay" class="debug-overlay" style="display: none;">
+        <div class="debug-box">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 3rem; color: #ef4444; margin-bottom: 1rem; filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.4));"></i>
+            <div style="font-size: 1.25rem; font-weight: 700; font-family: var(--font-heading); margin-bottom: 0.5rem; color: #ef4444;">시스템 오류 감지 (Crash Detected)</div>
+            <div id="debugErrorMsg" style="font-size: 0.85rem; font-weight: 600; background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.2); word-break: break-all; margin-bottom: 1rem; width: 100%;">[오류 메시지]</div>
+            <div style="font-size: 0.75rem; text-align: left; margin-bottom: 0.35rem; font-weight: 600; width: 100%; color: var(--text-muted);">오류 추적 상세 (Stack Trace):</div>
+            <pre id="debugErrorStack" style="font-family: var(--font-mono); font-size: 0.65rem; background: rgba(0,0,0,0.6); padding: 0.75rem; border-radius: 6px; overflow: auto; max-height: 150px; width: 100%; text-align: left; white-space: pre-wrap; word-break: break-all; border: 1px solid var(--border-color); color: var(--text-muted); margin-bottom: 1.5rem;"></pre>
+            <div style="display:flex; gap:0.5rem; width: 100%;">
+                <button class="secondary-action-btn" id="closeDebugOverlayBtn" style="flex: 1; justify-content: center; cursor: pointer; padding: 0.5rem 0;">
+                    <span>닫기</span>
+                </button>
+                <button class="secondary-action-btn" onclick="navigator.clipboard.writeText(document.getElementById('debugErrorMsg').textContent + '\n\n' + document.getElementById('debugErrorStack').textContent); showToast('<i class=\'fa-solid fa-copy\'></i> 오류 스택이 클립보드에 복사되었습니다.');" style="flex: 1; justify-content: center; background: var(--color-primary); color: white; border: none; cursor: pointer; padding: 0.5rem 0;">
+                    <i class="fa-solid fa-copy"></i> <span>스택 복사 (AI 전달용)</span>
+                </button>
+            </div>
         </div>
     </div>
 

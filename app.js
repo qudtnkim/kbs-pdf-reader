@@ -2,6 +2,69 @@
 const pdfjsLib = window['pdfjs-dist/build/pdf'];
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+// --- Global System Error Catcher & Logger ---
+window.onerror = function(message, source, lineno, colno, error) {
+    logSystemError({
+        message: message,
+        source: source ? source.substring(source.lastIndexOf('/') + 1) : 'Unknown',
+        lineno: lineno,
+        colno: colno,
+        stack: error ? error.stack : null
+    });
+    return false; // Let browser continue normal output
+};
+
+window.addEventListener('unhandledrejection', (e) => {
+    logSystemError({
+        message: e.reason ? (e.reason.message || e.reason) : 'Promise Rejection',
+        source: 'Promise Promise',
+        lineno: 0,
+        colno: 0,
+        stack: e.reason ? e.reason.stack : null
+    });
+});
+
+function logSystemError(errObj) {
+    try {
+        const logs = JSON.parse(localStorage.getItem('kbs_error_logs') || '[]');
+        const newLog = {
+            id: 'err_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            timestamp: new Date().toLocaleString(),
+            ...errObj
+        };
+        logs.unshift(newLog);
+        
+        // Keep max 10 logs
+        if (logs.length > 10) logs.pop();
+        localStorage.setItem('kbs_error_logs', JSON.stringify(logs));
+        
+        // Dynamically update UI settings list if DOM is loaded
+        if (typeof renderErrorLogList === 'function') {
+            renderErrorLogList();
+        }
+        
+        // If crash UI exists and error is critical (TypeError or ReferenceError), display full screen debug overlay
+        const isCritical = String(errObj.message).includes('TypeError') || String(errObj.message).includes('ReferenceError') || String(errObj.message).includes('SyntaxError');
+        if (isCritical) {
+            showDebugCrashOverlay(newLog);
+        }
+    } catch(e) {
+        console.warn('Logging error failed:', e);
+    }
+}
+
+function showDebugCrashOverlay(err) {
+    const overlay = document.getElementById('debugOverlay');
+    if (!overlay) return;
+    
+    overlay.style.display = 'flex';
+    const msgEl = document.getElementById('debugErrorMsg');
+    const stackEl = document.getElementById('debugErrorStack');
+    
+    if (msgEl) msgEl.textContent = `[오류] ${err.message} (${err.source} - Line: ${err.lineno}, Col: ${err.colno})`;
+    if (stackEl) stackEl.textContent = err.stack || '스택트레이스 정보가 없습니다.';
+}
+
 // Base64 or split-key fallback to prevent GitHub push protection triggers
 const _fallbackKey = 'AQ.Ab8RN6L59S' + 'uSJtto_kCjy' + 'xwcp5hnUU9e' + 'D8XQUEORoXN' + 'ofqDwXg';
 
@@ -82,7 +145,11 @@ const elements = {
     cvAtlasCard: document.getElementById('cvAtlasCard'),
     cvAtlasContent: document.getElementById('cvAtlasContent'),
     clearCvAtlasBtn: document.getElementById('clearCvAtlasBtn'),
-    globalDropOverlay: document.getElementById('globalDropOverlay')
+    globalDropOverlay: document.getElementById('globalDropOverlay'),
+    debugOverlay: document.getElementById('debugOverlay'),
+    errorLogList: document.getElementById('errorLogList'),
+    clearErrorLogsBtn: document.getElementById('clearErrorLogsBtn'),
+    closeDebugOverlayBtn: document.getElementById('closeDebugOverlayBtn')
 };
 
 // --- Initial Setup ---
@@ -113,6 +180,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Init global drag and drop overlay listener
     initGlobalDragAndDrop();
+    
+    // Render error logs and bind diagnosis panel click handlers
+    renderErrorLogList();
+    if (elements.clearErrorLogsBtn) {
+        elements.clearErrorLogsBtn.addEventListener('click', clearErrorLogs);
+    }
+    if (elements.closeDebugOverlayBtn) {
+        elements.closeDebugOverlayBtn.addEventListener('click', () => {
+            elements.debugOverlay.style.display = 'none';
+        });
+    }
 });
 
 // --- Toast notification ---
@@ -2130,4 +2208,47 @@ function initGlobalDragAndDrop() {
             showToast('<i class="fa-solid fa-triangle-exclamation"></i> 올바른 PDF 파일을 놓아주세요.', 'error');
         }
     });
+}
+
+// --- Error Logs Diagnostic Renderer ---
+function renderErrorLogList() {
+    const listContainer = elements.errorLogList;
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = '';
+    const logs = JSON.parse(localStorage.getItem('kbs_error_logs') || '[]');
+    
+    if (logs.length === 0) {
+        listContainer.innerHTML = `
+            <div style="font-size: 0.75rem; color: var(--text-dim); text-align: center; padding: 0.5rem 0;">
+                현재 발생한 시스템 장애 기록이 없습니다.
+            </div>
+        `;
+        return;
+    }
+    
+    logs.forEach(log => {
+        const item = document.createElement('div');
+        item.className = 'error-log-item';
+        item.style.cssText = 'border-bottom: 1px dashed rgba(239, 68, 68, 0.15); padding: 0.35rem 0; font-size: 0.7rem; &:last-child { border-bottom: none; }';
+        
+        item.innerHTML = `
+            <div style="display:flex; justify-content:space-between; color: #ef4444; font-weight:600; margin-bottom: 0.1rem;">
+                <span>⚠️ ${log.message.length > 35 ? log.message.substring(0, 35) + '...' : log.message}</span>
+                <span style="color:var(--text-dim); font-weight:normal; font-size:0.6rem;">${log.timestamp.split(' ')[1] || ''}</span>
+            </div>
+            <div style="color:var(--text-muted); line-height:1.2; word-break:break-all;">
+                Source: ${log.source} (Line: ${log.lineno}, Col: ${log.colno})
+            </div>
+        `;
+        listContainer.appendChild(item);
+    });
+}
+
+function clearErrorLogs() {
+    if (confirm('시스템에 기록된 모든 오류 히스토리를 초기화하시겠습니까?')) {
+        localStorage.removeItem('kbs_error_logs');
+        renderErrorLogList();
+        showToast('<i class="fa-solid fa-circle-check"></i> 오류 로그가 성공적으로 초기화되었습니다.');
+    }
 }

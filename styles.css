@@ -1005,3 +1005,42 @@ header.app-header {
 .global-drop-overlay.active .global-drop-box {
     transform: scale(1);
 }
+
+/* --- Debug Crash Overlay --- */
+.debug-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(8, 12, 20, 0.95);
+    backdrop-filter: blur(15px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.debug-box {
+    width: 90%;
+    max-width: 550px;
+    padding: 2.5rem 2rem;
+    border: 2px solid #ef4444;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.95);
+    box-shadow: var(--shadow-lg), 0 0 20px rgba(239, 68, 68, 0.35);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: debugZoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes debugZoomIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.error-log-item:hover {
+    background: rgba(239, 68, 68, 0.04);
+}
