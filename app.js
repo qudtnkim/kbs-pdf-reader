@@ -1,4 +1,4 @@
-// KBS PDF Application Logic
+// Byeong Soo Kim Application Logic
 const pdfjsLib = window['pdfjs-dist/build/pdf'];
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -1391,7 +1391,7 @@ async function triggerAutoSummary() {
     
     try {
         let responseText = '';
-        let systemInstruction = state.customPersona.trim() || "너는 연구 논문을 해독하고 핵심을 추출하는 AI 연구 비서 KBS PDF이다. 친절하고 신뢰감 높은 어조로 한국어로 작성해주고, 수식이나 기술 용어는 명확히 정리해줘.";
+        let systemInstruction = state.customPersona.trim() || "너는 연구 논문을 해독하고 핵심을 추출하는 AI 연구 비서 Byeong Soo Kim이다. 친절하고 신뢰감 높은 어조로 한국어로 작성해주고, 수식이나 기술 용어는 명확히 정리해줘.";
         
         // Dynamic learner profile injection for customized summary
         if (state.researchProfile && state.researchProfile.queryCount > 0 && state.researchProfile.interestsSummary && !state.researchProfile.interestsSummary.includes("아직 분석 대화가 진행되지 않았습니다")) {
@@ -1594,7 +1594,7 @@ async function handleSendMessage() {
             parts: [{ text: customPrompt }]
         });
         
-        let systemInstruction = state.customPersona.trim() || "너는 논문을 해설하고 설명하는 AI 연구 조수 KBS PDF이다. 질문에 성심성의껏 답변하되, 사용자가 '어텐션 지정한 논문 영역'을 주었다면 해당 영역의 수식, 문장, 그림 캡션을 분석의 중심으로 삼고 해석해줘. 수식은 마크다운 수식을 쓰거나 알기 쉽게 가독성 있게 한국어로 해설해주고 마크다운 형식을 적극 사용해.";
+        let systemInstruction = state.customPersona.trim() || "너는 논문을 해설하고 설명하는 AI 연구 조수 Byeong Soo Kim이다. 질문에 성심성의껏 답변하되, 사용자가 '어텐션 지정한 논문 영역'을 주었다면 해당 영역의 수식, 문장, 그림 캡션을 분석의 중심으로 삼고 해석해줘. 수식은 마크다운 수식을 쓰거나 알기 쉽게 가독성 있게 한국어로 해설해주고 마크다운 형식을 적극 사용해.";
         
         // Dynamic learner profile injection
         if (state.researchProfile && state.researchProfile.queryCount > 0 && state.researchProfile.interestsSummary && !state.researchProfile.interestsSummary.includes("아직 분석 대화가 진행되지 않았습니다")) {
@@ -1663,7 +1663,7 @@ function appendMessage(role, text, isTemp = false) {
     
     const meta = document.createElement('span');
     meta.className = 'message-meta';
-    meta.textContent = role === 'user' ? 'User' : 'KBS PDF';
+    meta.textContent = role === 'user' ? 'User' : 'Byeong Soo Kim';
     
     msgDiv.appendChild(bubble);
     msgDiv.appendChild(meta);
