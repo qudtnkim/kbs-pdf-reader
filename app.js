@@ -816,33 +816,23 @@ async function processAndLoadPDF(file) {
     
     state.filename = file.name;
     
-    // Attempt 1: Blob URL (Highly compatible, solves arrayBuffer stream bugs in local environments)
-    try {
-        const fileURL = URL.createObjectURL(file);
-        console.log("[Loader] Strategy 1: URL.createObjectURL -> success:", fileURL);
-        await loadPDFDocument(fileURL, file.name);
-        return;
-    } catch (errURL) {
-        console.warn("[Loader] Strategy 1 (Blob URL) failed, trying Strategy 2...", errURL);
-    }
-    
-    // Attempt 2: Modern ArrayBuffer promise
+    // Attempt 1: Modern file.arrayBuffer()
     try {
         const arrayBuffer = await file.arrayBuffer();
-        console.log("[Loader] Strategy 2: file.arrayBuffer() -> success.");
+        console.log("[Loader] Strategy 1: file.arrayBuffer() -> success.");
         await loadPDFDocument({ data: arrayBuffer }, file.name);
         return;
     } catch (errBuffer) {
-        console.warn("[Loader] Strategy 2 (ArrayBuffer Promise) failed, trying Strategy 3...", errBuffer);
+        console.warn("[Loader] Strategy 1 (ArrayBuffer Promise) failed, trying Strategy 2...", errBuffer);
     }
     
-    // Attempt 3: Legacy FileReader
+    // Attempt 2: Legacy FileReader
     try {
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
                 const arrayBuffer = e.target.result;
-                console.log("[Loader] Strategy 3: FileReader onload -> success.");
+                console.log("[Loader] Strategy 2: FileReader onload -> success.");
                 await loadPDFDocument({ data: arrayBuffer }, file.name);
             } catch (errReader) {
                 console.error("[Loader] Critical inner parser fail in FileReader:", errReader);
@@ -852,7 +842,7 @@ async function processAndLoadPDF(file) {
         };
         reader.readAsArrayBuffer(file);
     } catch (errFileReader) {
-        console.error("[Loader] Strategy 3 (FileReader) initialization failed.", errFileReader);
+        console.error("[Loader] Strategy 2 (FileReader) initialization failed.", errFileReader);
         showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 해석 엔진 최종 초기화 실패', 'error');
         resetToInitialState();
     }
@@ -2093,8 +2083,8 @@ async function handleRestoreFile(file) {
         </div>
     `;
 
-    async function bindAndRenderRestoredPDF(pdfSource) {
-        const loadingTask = pdfjsLib.getDocument(pdfSource);
+    async function bindAndRenderRestoredPDF(arrayBuffer) {
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdfDoc = await loadingTask.promise;
         state.pdfDoc = pdfDoc;
         state.totalPages = pdfDoc.numPages;
@@ -2107,34 +2097,24 @@ async function handleRestoreFile(file) {
         showToast('<i class="fa-solid fa-images"></i> PDF 시각 레이아웃 복구 완료');
     }
 
-    // Attempt 1: Blob URL (Highly compatible)
-    try {
-        const fileURL = URL.createObjectURL(file);
-        console.log("[Restore Loader] Strategy 1: URL.createObjectURL -> success:", fileURL);
-        await bindAndRenderRestoredPDF(fileURL);
-        return;
-    } catch (errURL) {
-        console.warn("[Restore Loader] Strategy 1 (Blob URL) failed, trying Strategy 2...", errURL);
-    }
-
-    // Attempt 2: ArrayBuffer promise
+    // Attempt 1: Modern file.arrayBuffer()
     try {
         const arrayBuffer = await file.arrayBuffer();
-        console.log("[Restore Loader] Strategy 2: file.arrayBuffer() -> success.");
-        await bindAndRenderRestoredPDF({ data: arrayBuffer });
+        console.log("[Restore Loader] Strategy 1: file.arrayBuffer() -> success.");
+        await bindAndRenderRestoredPDF(arrayBuffer);
         return;
     } catch (errBuffer) {
-        console.warn("[Restore Loader] Strategy 2 (ArrayBuffer Promise) failed, trying Strategy 3...", errBuffer);
+        console.warn("[Restore Loader] Strategy 1 (ArrayBuffer Promise) failed, trying Strategy 2...", errBuffer);
     }
 
-    // Attempt 3: Legacy FileReader
+    // Attempt 2: Legacy FileReader
     try {
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
                 const arrayBuffer = e.target.result;
-                console.log("[Restore Loader] Strategy 3: FileReader onload -> success.");
-                await bindAndRenderRestoredPDF({ data: arrayBuffer });
+                console.log("[Restore Loader] Strategy 2: FileReader onload -> success.");
+                await bindAndRenderRestoredPDF(arrayBuffer);
             } catch (errReader) {
                 console.error("[Restore Loader] Critical inner parser fail in FileReader:", errReader);
                 showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 파싱 엔진 로드 실패', 'error');
@@ -2143,7 +2123,7 @@ async function handleRestoreFile(file) {
         };
         reader.readAsArrayBuffer(file);
     } catch (errFileReader) {
-        console.error("[Restore Loader] Strategy 3 (FileReader) initialization failed.", errFileReader);
+        console.error("[Restore Loader] Strategy 2 (FileReader) initialization failed.", errFileReader);
         showToast('<i class="fa-solid fa-circle-exclamation"></i> PDF 해석 엔진 최종 복구 실패', 'error');
         loadConversation(state.activeConversationId);
     }
