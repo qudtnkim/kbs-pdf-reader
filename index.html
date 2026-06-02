@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KBS PDF - AI Attention PDF Reader</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body>
+
+    <!-- App Header -->
+    <header class="app-header">
+        <div class="logo-section">
+            <i class="fa-solid fa-wand-magic-sparkles logo-icon"></i>
+            <h1>KBS PDF</h1>
+            <span class="model-indicator" id="currentModelBadge">Gemini 1.5 Flash</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon" id="toggleSidebarBtn" title="설정 및 기록 토글">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- Left Sidebar: Settings & Conversation History -->
+        <aside class="sidebar glass" id="sidebar">
+            <!-- Settings Panel -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title" id="settingsHeader" style="cursor: pointer; user-select: none;" title="고급 설정 펼치기">
+                    <span>설정 (Configuration)</span>
+                    <i class="fa-solid fa-gear" id="gearIcon" style="transition: transform 0.3s ease;"></i>
+                </div>
+                
+                <!-- API Key Form Group (Hidden on UI, fixed in code) -->
+                <div class="form-group" style="display: none;">
+                    <label class="form-label" for="apiKey">Gemini API Key</label>
+                    <input type="password" id="apiKey" class="input-field" placeholder="AIZAsy... 입력 후 Enter" autocomplete="current-password">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="modelSelect">사용 모델</label>
+                    <select id="modelSelect" class="input-field">
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (기본값)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (고성능 추천)</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                        <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">컨텍스트 검색 모드</label>
+                    <div class="toggle-group" id="contextModeGroup">
+                        <button class="toggle-btn active" data-mode="cag">CAG (전체 컨텍스트)</button>
+                        <button class="toggle-btn" data-mode="rag">RAG (조각 임베딩)</button>
+                    </div>
+                </div>
+
+                <!-- Advanced Settings Block (Toggled by Gear Icon) -->
+                <div id="advancedSettingsBlock" style="display: none; border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 1rem; margin-top: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label" for="tempRange">답변 창의성 (Temperature): <span id="tempValue" style="color:var(--color-primary); font-weight:600;">0.25</span></label>
+                        <input type="range" id="tempRange" min="0" max="1" step="0.05" value="0.25" style="width: 100%; accent-color: var(--color-primary); cursor: pointer;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="systemPrompt">AI 역할 지정 (Custom Persona)</label>
+                        <textarea id="systemPrompt" class="input-field" rows="2" style="font-size:0.75rem; resize:vertical;" placeholder="예: '주요 수식과 변수의 물리적 의미를 중점적으로 한글로 해석해줘'"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <button class="toggle-btn" id="clearAllDbBtn" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); width: 100%; font-weight: 600; cursor: pointer; padding: 0.5rem 0;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> 모든 캐시 데이터 영구 삭제
+                    </div>
+                </div>
+            </div>
+
+            <!-- Research Profile Panel (Dynamic Learner) -->
+            <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); background: rgba(139, 92, 246, 0.02);">
+                <div class="sidebar-section-title">
+                    <span>나의 연구 관심사 프로파일</span>
+                    <i class="fa-solid fa-graduation-cap" style="color: var(--color-primary);" title="연구 성향 학습 지표"></i>
+                </div>
+                <div style="padding: 2px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.7rem; color:var(--text-muted); margin-bottom: 0.35rem;">
+                        <span>학습 누적 상태</span>
+                        <span id="profileQueryCount" style="color:var(--color-primary); font-weight:600;">질문 0회 누적</span>
+                    </div>
+                    <div class="attention-content" id="profileSummary" style="font-size: 0.75rem; border-left: 2px solid var(--color-primary); max-height:75px; overflow-y:auto; background:rgba(0,0,0,0.15); line-height:1.4; padding:0.4rem; font-style:normal;">
+                        아직 분석 대화가 진행되지 않았습니다. 질문이 늘어남에 따라 병수님의 질문 성향을 실시간 학습하여 더 깊은 논문 요약과 해설을 제공합니다.
+                    </div>
+                    <div id="profileKeywords" style="display:flex; flex-wrap:wrap; gap:0.25rem; margin-top:0.4rem;">
+                        <!-- dynamic badges -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Panel -->
+            <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: none;">
+                <div class="sidebar-section-title">
+                    <span>최근 대화 기록</span>
+                    <i class="fa-solid fa-history"></i>
+                </div>
+                <div class="history-list" id="historyList">
+                    <!-- Loaded dynamically via js -->
+                    <div class="text-center" style="font-size: 0.8rem; color: var(--text-dim); text-align: center; padding-top: 1rem;">
+                        저장된 대화가 없습니다.
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center Pane: PDF Viewer -->
+        <main class="viewer-pane" id="viewerPane">
+            <!-- PDF Toolbar -->
+            <div class="viewer-toolbar">
+                <div class="toolbar-group">
+                    <button class="btn-icon" id="prevPageBtn" title="이전 페이지">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span id="pageIndicator" style="font-size: 0.85rem; color: var(--text-muted); min-width: 60px; text-align: center;">0 / 0</span>
+                    <button class="btn-icon" id="nextPageBtn" title="다음 페이지">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="toolbar-group">
+                    <button class="btn-icon" id="zoomOutBtn" title="축소">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <span id="zoomIndicator" style="font-size: 0.85rem; color: var(--text-muted); min-width: 45px; text-align: center;">100%</span>
+                    <button class="btn-icon" id="zoomInBtn" title="확대">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+
+                <div class="toolbar-group">
+                    <button class="btn-icon active" id="cursorModeText" title="일반 텍스트 선택 모드">
+                        <i class="fa-solid fa-arrow-pointer"></i>
+                    </button>
+                    <button class="btn-icon" id="cursorModeAttention" title="마우스 드래그 영역 어텐션 모드">
+                        <i class="fa-solid fa-crop-simple"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Attention Mode Instructions Banner (Hidden by default) -->
+            <div class="attention-mode-banner" id="attentionBanner" style="display: none;">
+                <i class="fa-solid fa-crop-simple"></i>
+                <span>영역 어텐션 모드 활성화됨: PDF 페이지를 마우스 드래그하여 원하는 범위를 지정하세요.</span>
+            </div>
+
+            <!-- PDF Dropzone (Initial state) -->
+            <div class="pdf-dropzone" id="dropzone">
+                <i class="fa-solid fa-file-pdf dropzone-icon"></i>
+                <div class="dropzone-title">논문 PDF 파일을 이곳에 드롭하세요</div>
+                <div class="dropzone-desc">또는 클릭하여 로컬 파일 선택</div>
+                <input type="file" id="pdfFileInput" accept="application/pdf" style="display: none;">
+            </div>
+
+            <!-- Scrollable PDF view area -->
+            <div class="pdf-scroll-container" id="pdfContainer" style="display: none;">
+                <!-- Dynamically populated page divs -->
+            </div>
+        </main>
+
+        <!-- Vertical Drag Resizer Splitter -->
+        <div class="chat-resizer" id="chatResizer" title="드래그하여 크기 조절"></div>
+
+        <!-- Right Sidebar: Interactive Chat & Focus context -->
+        <aside class="chat-pane" id="chatPane">
+            <!-- Chat Pane Header Controls -->
+            <div class="chat-pane-header" style="display:flex; justify-content:space-between; align-items:center; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.95); z-index: 10;">
+                <span style="font-family: var(--font-heading); font-size: 0.9rem; font-weight: 600; color: var(--text-main); display:flex; align-items:center; gap:0.5rem;">
+                    <i class="fa-solid fa-comments" style="color:var(--color-primary);"></i> AI 종이 비서 (Co-Pilot)
+                </span>
+                <div style="display:flex; gap:0.25rem;">
+                    <button class="btn-icon" id="toggleChatWidthBtn" title="기본/넓게 크기 토글" style="width:28px; height:28px; font-size:0.75rem;">
+                        <i class="fa-solid fa-arrows-left-right"></i>
+                    </button>
+                    <button class="btn-icon" id="fullscreenChatBtn" title="독립 전체 화면 모드 토글" style="width:28px; height:28px; font-size:0.75rem;">
+                        <i class="fa-solid fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- Active Selected Attention Area -->
+            <div class="attention-box-card" id="attentionCard">
+                <div class="attention-card-header">
+                    <div class="attention-title">
+                        <i class="fa-solid fa-circle-nodes"></i>
+                        <span>어텐션 포커스 (Attention Focus)</span>
+                    </div>
+                    <button class="attention-clear" id="clearAttentionBtn" title="어텐션 초기화">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="attention-content" id="attentionContent">
+                    마우스로 PDF 텍스트를 선택하거나 어텐션 박스 모드로 영역을 드래그하면, 해당 부분에 집중하여 해석과 요약을 제공합니다.
+                </div>
+            </div>
+
+            <!-- CV Knowledge Atlas Reference -->
+            <div class="attention-box-card" id="cvAtlasCard" style="display: none; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.05)); border-color: rgba(59, 130, 246, 0.3);">
+                <div class="attention-card-header">
+                    <div class="attention-title" style="color: var(--color-accent);">
+                        <i class="fa-solid fa-compass"></i>
+                        <span>CV 지식 아틀라스 연동</span>
+                    </div>
+                    <button class="attention-clear" id="clearCvAtlasBtn" title="아틀라스 닫기">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="attention-content" id="cvAtlasContent" style="font-size: 0.75rem; border-left: 2px solid var(--color-accent); font-style: normal;">
+                    <!-- CV Atlas matching results loaded here -->
+                </div>
+            </div>
+
+            <!-- Conversational Q&A Log -->
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant">
+                    <div class="message-bubble">
+                        안녕하세요? **병수님**!
+                        **KBS PDF**에 오신 것을 환영합니다.
+                        논문 PDF 파일을 끌어다 놓으시면 페이지 렌더링과 텍스트 추출이 완료됩니다.
+                        
+                        그 이후에 다음과 같이 AI와 상호작용할 수 있습니다:
+                        1. **논문 전체 요약 및 핵심 아이디어 요약** 요청
+                        2. 마우스로 논문의 그림/수식/텍스트 영역을 **지정(Attention)**하여 그 구체적 수식의 의미나 맥락 질문
+                        3. 이전 대화 기록을 기반으로 한 질문 및 RAG/CAG 검색식 응답
+                        
+                        시작하려면 먼저 **Gemini API Key**를 왼쪽 설정 창에 입력해 주세요!
+                    </div>
+                    <span class="message-meta">System</span>
+                </div>
+            </div>
+
+            <!-- Chat Bottom Control Area -->
+            <div class="chat-input-area">
+                <div class="chat-input-container">
+                    <textarea class="chat-textarea" id="chatInput" placeholder="논문에 대해 질문해보세요... (Shift + Enter 줄바꿈)"></textarea>
+                    <button class="send-btn" id="sendBtn" title="질문 전송">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="chat-input-actions">
+                    <div class="info-badge" id="pdfStatusBadge">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>불러온 PDF가 없습니다.</span>
+                    </div>
+                    <button class="secondary-action-btn" id="clearChatBtn" title="현재 대화 지우기">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>대화 지우기</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer"></div>
+
+    <!-- External CDNs: PDF.js & Marked.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Custom scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
