@@ -1420,7 +1420,7 @@ async function triggerAutoSummary() {
 
         // Add formatting, proper noun translation, and length limits constraints
         systemInstruction += `\n\n[필수 지침 및 제약 조건]:
-1. 모든 답변의 길이는 공백을 포함하여 반드시 **1500자 이내**로 작성해 주세요. 제한된 분량 안에 내용을 알차게 압축하여 완성하되, 답변이 중간에 비정상적으로 끊기거나 미완성인 문장으로 끝나는 일이 절대 없도록 마지막 문장까지 **마침표(.)로 명확하게 완성**해서 종결해 주세요.
+1. 답변은 장황한 부연 설명을 생략하고 핵심 내용 위주로 요약하되, 수식 유도나 핵심 알고리즘 설명 등 명확한 기술적 분석이 필요한 경우에는 충분한 분량을 활용하여 완전히 완성된 형태로 설명해 주세요. 과도한 문장 생략보다는 분석의 완성도와 가독성을 최우선으로 삼아 문장이 중간에 잘리거나 어색하게 끝나지 않도록 반드시 마침표(.)로 깔끔하게 끝맺음해 주세요.
 2. 컴퓨터 비전(Computer Vision) 분야에서 널리 쓰이는 고유 대명사나 학술 용어(예: Bounding Box, IoU, Feature Map, Backbone, Self-Attention, Anchor Box, Zero-shot, Contrastive Learning 등)는 무리하게 한글로 번역하거나 바꾸지 말고, 영어나 원본 표기 그대로 사용하여 전문적이고 직관적인 학술 분석을 제공해 주세요.`;
         
         const contentsPayload = [
@@ -1506,6 +1506,20 @@ async function streamResponsePayload(response, targetBubbleElement, onCompletedC
                                 accumulatedText += text;
                                 // Render markdown using marked.js
                                 targetBubbleElement.innerHTML = marked.parse(accumulatedText);
+                                
+                                // Render mathematical equations live
+                                if (window.renderMathInElement) {
+                                    window.renderMathInElement(targetBubbleElement, {
+                                        delimiters: [
+                                            {left: '$$', right: '$$', display: true},
+                                            {left: '$', right: '$', display: false},
+                                            {left: '\\(', right: '\\)', display: false},
+                                            {left: '\\[', right: '\\]', display: true}
+                                        ],
+                                        throwOnError: false
+                                    });
+                                }
+                                
                                 elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
                             }
                         } catch (e) {
@@ -1623,7 +1637,7 @@ async function handleSendMessage() {
 
         // Constraints for CV terms, format, and 1500 chars limit
         systemInstruction += `\n\n[필수 지침 및 제약 조건]:
-1. 모든 답변의 길이는 공백을 포함하여 반드시 **1500자 이내**로 작성해 주세요. 제한된 분량 안에 내용을 알차게 압축하여 완성하되, 답변이 중간에 비정상적으로 끊기거나 미완성인 문장으로 끝나는 일이 절대 없도록 마지막 문장까지 **마침표(.)로 명확하게 완성**해서 종결해 주세요.
+1. 답변은 장황한 부연 설명을 생략하고 핵심 내용 위주로 요약하되, 수식 유도나 핵심 알고리즘 설명 등 명확한 기술적 분석이 필요한 경우에는 충분한 분량을 활용하여 완전히 완성된 형태로 설명해 주세요. 과도한 문장 생략보다는 분석의 완성도와 가독성을 최우선으로 삼아 문장이 중간에 잘리거나 어색하게 끝나지 않도록 반드시 마침표(.)로 깔끔하게 끝맺음해 주세요.
 2. 컴퓨터 비전(Computer Vision) 분야에서 널리 쓰이는 고유 대명사나 학술 용어(예: Bounding Box, IoU, Feature Map, Backbone, Self-Attention, Anchor Box, Zero-shot, Contrastive Learning 등)는 무리하게 한글로 번역하거나 바꾸지 말고, 영어나 원본 표기 그대로 사용하여 전문적이고 직관적인 학술 분석을 제공해 주세요.`;
         
         const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${state.model}:streamGenerateContent?key=${state.apiKey}`, {
@@ -1680,6 +1694,19 @@ function appendMessage(role, text, isTemp = false) {
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
     bubble.innerHTML = isTemp ? text : marked.parse(text);
+    
+    // Render LaTeX Math equations in bubble
+    if (!isTemp && window.renderMathInElement) {
+        window.renderMathInElement(bubble, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false},
+                {left: '\\(', right: '\\)', display: false},
+                {left: '\\[', right: '\\]', display: true}
+            ],
+            throwOnError: false
+        });
+    }
     
     const meta = document.createElement('span');
     meta.className = 'message-meta';

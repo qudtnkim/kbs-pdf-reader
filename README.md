@@ -22,10 +22,11 @@
 ### 4. 🗺️ 컴퓨터 비전(CV) 지식 아틀라스 RAG 연동
 * YOLO, Vision Transformer (ViT), CLIP, SAM, IoU, NeRF, ResNet, InfoNCE 등 컴퓨터 비전 분야의 주요 아키텍처 및 손실함수, 평가지표 데이터베이스가 내장되어 있습니다.
 * 사용자가 질문하면 로컬 키워드 매칭을 통해 관련 사전 지식을 사이드바에 즉각 연동하고, Gemini가 이를 참고하여 보다 높은 전문성의 LLM Insight를 제공합니다.
-* **용어 영문 보존**: 컴퓨터 비전 분야 고유대명사(*Bounding Box*, *Feature Map*, *Self-Attention* 등)는 번역하지 않고 영문 원본 표기 그대로 노출하여 전문 학술적 가작성을 지켰습니다.
+* **용어 영문 보존**: 컴퓨터 비전 분야 고유대명사(*Bounding Box*, *Feature Map*, *Self-Attention* 등)는 번역하지 않고 영문 원본 표기 그대로 노출하여 전문 학술적 가독성을 지켰습니다.
 
-### 5. ⏱️ 답변 1,500자 제한 및 가독성 최적화
-* 모든 대답을 **공백 포함 1,500자 이내**로 간결하게 요약하여 반환합니다. 불필요한 사족을 걷어내어 사용자가 질문을 편하게 이어가기 좋습니다.
+### 5. 🧮 KaTeX 기반 실시간 수식(LaTeX) 시각화 & 대화 최적화
+* 논문의 꽃인 복잡한 수식이 `$$` 또는 `$` 기호 채로 방치되는 불편함을 완벽히 해결했습니다. **KaTeX 수식 엔진**을 탑재하여 대화창에 나타나는 모든 수식을 논문 인쇄물처럼 미려한 학술 수식 폰트와 레이아웃으로 실시간 변환 렌더링해 줍니다.
+* 하드코딩된 기계적 글자 수 차단을 걷어내고 **분석의 완결성을 보장**하도록 프롬프트를 개선했습니다. 핵심 요약은 깔끔하게 제공하되, 수식 유도나 알고리즘 설명 과정에서 문장이 중간에 잘려 미완성으로 끝나는 현상 없이 끝까지 완성도 높은 해설을 송출하여 깊이 있는 연속 질문이 가능합니다.
 
 ### 6. 🚨 자동 이중 재시도 및 로컬 영구 복원
 * API 호출 과부하(`429`) 감지 시 **자동으로 3초 대기 후 2회 재시도**를 실행하여 대화가 끊기지 않도록 보호합니다.
@@ -39,6 +40,7 @@
 * **Libraries (CDN)**:
   * [PDF.js](https://mozilla.github.io/pdf.js/) (Mozilla PDF Rendering Engine)
   * [Marked.js](https://marked.js.org/) (Markdown Parser)
+  * [KaTeX & Auto-Render](https://katex.org/) (Fast Math Equation Renderer)
   * [FontAwesome v6](https://fontawesome.com/) (Premium Icons)
 
 ---
@@ -52,7 +54,7 @@
    git clone https://github.com/qudtnkim/kbs-pdf-reader.git
    ```
 2. 폴더 내의 **`index.html`** 파일을 웹 브라우저(Chrome, Whale, Edge 등)에 드래그하여 실행합니다.
-3. 왼쪽 설정 창에 API Key가 기본 탑재되어 있으므로, 읽고 싶은 논문 PDF 파일을 끌어다 놓기만 하면 즉시 분석이 시작됩니다!
+3. 설정 창에 API Key가 기본 탑재되어 있으므로, 읽고 싶은 논문 PDF 파일을 끌어다 놓기만 하면 즉시 분석이 시작됩니다!
 
 ---
 
